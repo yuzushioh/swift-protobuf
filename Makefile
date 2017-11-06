@@ -97,10 +97,8 @@ TEST_PROTOS= \
 	Protos/google/protobuf/unittest_empty.proto \
 	Protos/google/protobuf/unittest_import.proto \
 	Protos/google/protobuf/unittest_import_lite.proto \
-	Protos/google/protobuf/unittest_import_proto3.proto \
 	Protos/google/protobuf/unittest_import_public.proto \
 	Protos/google/protobuf/unittest_import_public_lite.proto \
-	Protos/google/protobuf/unittest_import_public_proto3.proto \
 	Protos/google/protobuf/unittest_lite.proto \
 	Protos/google/protobuf/unittest_lite_imports_nonlite.proto \
 	Protos/google/protobuf/unittest_mset.proto \
@@ -339,7 +337,7 @@ test-runtime: build
 test-plugin: build ${PROTOC_GEN_SWIFT}
 	@rm -rf _test && mkdir _test
 	for p in `find Protos/ -type f -name '*.proto'`; do \
-		${GENERATE_SRCS} --tfiws_out=_test $$p; \
+		${GENERATE_SRCS} --tfiws_out=_test $$p || exit 1; \
 	done
 	diff -ru _test Reference
 
@@ -356,7 +354,7 @@ test-plugin: build ${PROTOC_GEN_SWIFT}
 reference: build ${PROTOC_GEN_SWIFT}
 	@rm -rf Reference && mkdir Reference
 	for p in `find Protos/ -type f -name '*.proto'`; do \
-		${GENERATE_SRCS} --tfiws_out=Reference $$p; \
+		${GENERATE_SRCS} --tfiws_out=Reference $$p || exit 1; \
 	done
 
 #
@@ -396,12 +394,10 @@ regenerate-plugin-protos: build ${PROTOC_GEN_SWIFT}
 # can't be done in a single protoc/proto-gen-swift invoke and have to be done
 # one at a time instead.
 regenerate-test-protos: build ${PROTOC_GEN_SWIFT} Protos/generated_swift_names_enums.proto Protos/generated_swift_names_enum_cases.proto Protos/generated_swift_names_fields.proto Protos/generated_swift_names_messages.proto
-	for t in ${TEST_PROTOS}; do \
-		${GENERATE_SRCS} \
-			--tfiws_opt=FileNaming=DropPath \
-			--tfiws_out=Tests/SwiftProtobufTests \
-			$$t; \
-	done
+	${GENERATE_SRCS} \
+		--tfiws_opt=FileNaming=DropPath \
+		--tfiws_out=Tests/SwiftProtobufTests \
+		${TEST_PROTOS}
 
 Tests/PluginLibraryTests/DescriptorTestData.swift: build ${PROTOC_GEN_SWIFT} ${SWIFT_DESCRIPTOR_TEST_PROTOS}
 	@${PROTOC} \
@@ -465,7 +461,7 @@ Protos/generated_swift_names_fields.proto: Protos/mined_words.txt
 	@echo '// Protoc errors imply this file is being generated incorrectly' >> $@
 	@echo '// Swift compile errors are probably bugs in protoc-gen-swift' >> $@
 	@echo 'syntax = "proto3";' >> $@
-	@echo 'package protobuf_unittest;' >> $@
+	@echo 'package protobuf_unittest_generated;' >> $@
 	@echo 'message GeneratedSwiftReservedFields {' >> $@
 	@cat Protos/mined_words.txt | awk 'BEGIN{n = 1} {print "  int32 " $$1 " = " n ";"; n += 1 }' >> $@
 	@echo '}' >> $@
@@ -477,7 +473,7 @@ Protos/generated_swift_names_enum_cases.proto: Protos/mined_words.txt
 	@echo '// Protoc errors imply this file is being generated incorrectly' >> $@
 	@echo '// Swift compile errors are probably bugs in protoc-gen-swift' >> $@
 	@echo 'syntax = "proto3";' >> $@
-	@echo 'package protobuf_unittest;' >> $@
+	@echo 'package protobuf_unittest_generated;' >> $@
 	@echo 'enum GeneratedSwiftReservedEnum {' >> $@
 	@echo '  NONE = 0;' >> $@
 	@cat Protos/mined_words.txt | awk 'BEGIN{n = 1} {print "  " $$1 " = " n ";"; n += 1 }' >> $@
@@ -490,7 +486,7 @@ Protos/generated_swift_names_messages.proto: Protos/mined_words.txt
 	@echo '// Protoc errors imply this file is being generated incorrectly' >> $@
 	@echo '// Swift compile errors are probably bugs in protoc-gen-swift' >> $@
 	@echo 'syntax = "proto3";' >> $@
-	@echo 'package protobuf_unittest;' >> $@
+	@echo 'package protobuf_unittest_generated;' >> $@
 	@echo 'message GeneratedSwiftReservedMessages {' >> $@
 	@cat Protos/mined_words.txt | awk '{print "  message " $$1 " { int32 " $$1 " = 1; }"}' >> $@
 	@echo '}' >> $@
@@ -502,7 +498,7 @@ Protos/generated_swift_names_enums.proto: Protos/mined_words.txt
 	@echo '// Protoc errors imply this file is being generated incorrectly' >> $@
 	@echo '// Swift compile errors are probably bugs in protoc-gen-swift' >> $@
 	@echo 'syntax = "proto3";' >> $@
-	@echo 'package protobuf_unittest;' >> $@
+	@echo 'package protobuf_unittest_generated;' >> $@
 	@echo 'message GeneratedSwiftReservedEnums {' >> $@
 	@cat Protos/mined_words.txt | awk '{print "  enum " $$1 " { NONE_" $$1 " = 0; }"}' >> $@
 	@echo '}' >> $@
@@ -532,12 +528,8 @@ update-proto-files: check-for-protobuf-checkout
 	@rm -rf Protos/google && mkdir -p Protos/google/protobuf/compiler
 	@cp -v "${GOOGLE_PROTOBUF_CHECKOUT}"/src/google/protobuf/*.proto Protos/google/protobuf/
 	@cp -v "${GOOGLE_PROTOBUF_CHECKOUT}"/src/google/protobuf/compiler/*.proto Protos/google/protobuf/compiler/
-	# It would be nice to get these added to google/protobuf instead of
-	# applying them locally.
-	@echo 'option swift_prefix = "Proto3";' >> Protos/google/protobuf/unittest_import_proto3.proto
-	@echo 'option swift_prefix = "Proto3";' >> Protos/google/protobuf/unittest_import_public_proto3.proto
-	@echo 'option swift_prefix = "Proto3";' >> Protos/google/protobuf/unittest_proto3.proto
-	@echo 'option swift_prefix = "Proto3";' >> Protos/google/protobuf/map_unittest_proto3.proto
+	# This file doesn't generate in google/protobuf, appears to be stale/unused.
+	@rm Protos/google/protobuf/map_unittest_proto3.proto
 
 # Runs the conformance tests.
 test-conformance: build check-for-protobuf-checkout $(CONFORMANCE_HOST) Sources/Conformance/failure_list_swift.txt
